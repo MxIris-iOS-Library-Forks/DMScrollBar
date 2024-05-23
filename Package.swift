@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "DMScrollBar",
-    platforms: [.iOS(.v14)],
+    platforms: [.iOS(.v14), .macCatalyst(.v14)],
     products: [
         .library(
             name: "DMScrollBar",

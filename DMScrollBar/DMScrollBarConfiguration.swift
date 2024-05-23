@@ -17,6 +17,8 @@ extension DMScrollBar {
         /// Info label configuration, which appears during indicator scrolling. If nil - the info label will be hidden
         public let infoLabel: InfoLabel?
 
+        public let direction: Direction
+        
         /// - Parameters:
         ///   - isAlwaysVisible: Indicates if the scrollbar should always be visible
         ///   - hideTimeInterval: Number of seconds after which the scrollbar should be hidden after being inactive
@@ -28,25 +30,37 @@ extension DMScrollBar {
             hideTimeInterval: TimeInterval = 2,
             shouldDecelerate: Bool = true,
             indicator: Indicator = .default,
-            infoLabel: InfoLabel? = .default
+            infoLabel: InfoLabel? = .default,
+            direction: Direction = .vertical
         ) {
             self.isAlwaysVisible = isAlwaysVisible
             self.hideTimeInterval = hideTimeInterval
             self.shouldDecelerate = shouldDecelerate
             self.indicator = indicator
             self.infoLabel = infoLabel
+            self.direction = direction
         }
 
         /// Default scroll bar configuration
         public static let `default` = Configuration()
 
         /// iOS native scroll bar style configuration
-        public static let iosStyle = Configuration(
+        public static let iosStyleVertical = Configuration(
             indicator: .init(
-                normalState: .iosStyle(width: 3),
-                activeState: .custom(config: .iosStyle(width: 8)),
+                normalState: .iosStyleVertical(width: 3),
+                activeState: .custom(config: .iosStyleVertical(width: 8)),
                 animation: .defaultTiming(with: .fade)
-            )
+            ),
+            direction: .vertical
+        )
+        
+        public static let iosStyleHorizontal = Configuration(
+            indicator: .init(
+                normalState: .iosStyleHorizontal(height: 3),
+                activeState: .custom(config: .iosStyleHorizontal(height: 8)),
+                animation: .defaultTiming(with: .fade)
+            ),
+            direction: .horizontal
         )
     }
 }
@@ -239,11 +253,22 @@ extension DMScrollBar.Configuration {
             public static let `default` = StateConfig()
 
             /// iOS native style configuration for scroll bar indicator
-            public static func iosStyle(width: CGFloat) -> StateConfig {
+            public static func iosStyleVertical(width: CGFloat) -> StateConfig {
                 StateConfig(
                     size: .init(width: width, height: 100),
                     backgroundColor: UIColor.label.withAlphaComponent(0.35),
                     insets: .init(top: 4, left: 0, bottom: 4, right: 2),
+                    contentInsets: .zero,
+                    image: nil,
+                    roundedCorners: .allRounded
+                )
+            }
+            
+            public static func iosStyleHorizontal(height: CGFloat) -> StateConfig {
+                StateConfig(
+                    size: .init(width: 100, height: height),
+                    backgroundColor: UIColor.label.withAlphaComponent(0.35),
+                    insets: .init(top: 0, left: 4, bottom: 2, right: 4),
                     contentInsets: .zero,
                     image: nil,
                     roundedCorners: .allRounded
@@ -354,5 +379,10 @@ extension DMScrollBar.Configuration {
 
         /// Default info label configuration
         public static let `default` = InfoLabel()
+    }
+    
+    public enum Direction {
+        case horizontal
+        case vertical
     }
 }

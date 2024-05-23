@@ -15,10 +15,10 @@ final class ViewController: UIViewController {
 
     private var exampleStates: [(name: String, config: DMScrollBar.Configuration)] = [
         ("Default", DMScrollBar.Configuration.default),
-        ("iOS", DMScrollBar.Configuration.iosStyle),
+        ("iOS", DMScrollBar.Configuration.iosStyleVertical),
         ("Combined", DMScrollBar.Configuration(
             indicator: .init(
-                normalState: .iosStyle(width: 3),
+                normalState: .iosStyleVertical(width: 3),
                 activeState: .custom(config: .default)
             )
         )),
@@ -72,7 +72,8 @@ final class ViewController: UIViewController {
                 maximumWidth: 300,
                 roundedCorners: .init(radius: .rounded, corners: [.topLeft, .bottomRight]),
                 animation: .init(showDuration: 0.75, hideDuration: 0.75, animationType: .fadeAndSide)
-            )
+            ),
+            direction: .vertical
         ))
     ]
     private var sections = [Section]()

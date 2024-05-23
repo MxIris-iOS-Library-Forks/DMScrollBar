@@ -9,6 +9,10 @@ extension CGPoint {
         return CGPoint(x: 0, y: y)
     }
 
+    var withZeroY: CGPoint {
+        return CGPoint(x: x, y: 0)
+    }
+    
     func clamped(to rect: CGRect) -> CGPoint {
         return CGPoint(x: x.clamped(to: rect.minX...rect.maxX), y: y.clamped(to: rect.minY...rect.maxY))
     }

@@ -2,7 +2,6 @@ import UIKit
 import Combine
 
 public class DMScrollBar: UIView {
-
     // MARK: - Public
 
     public let configuration: Configuration
@@ -15,9 +14,14 @@ public class DMScrollBar: UIView {
     private let infoView = ScrollBarInfoView()
 
     private var scrollIndicatorTopConstraint: NSLayoutConstraint?
+    private var scrollIndicatorLeadingConstraint: NSLayoutConstraint?
+
     private var scrollIndicatorTrailingConstraint: NSLayoutConstraint?
+    private var scrollIndicatorBottomConstraint: NSLayoutConstraint?
+
     private var scrollIndicatorWidthConstraint: NSLayoutConstraint?
     private var scrollIndicatorHeightConstraint: NSLayoutConstraint?
+
     private var infoViewToScrollIndicatorConstraint: NSLayoutConstraint?
 
     private var cancellables = Set<AnyCancellable>()
@@ -56,12 +60,18 @@ public class DMScrollBar: UIView {
         addGestureRecognizers()
     }
 
-    override public func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+    public override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
         let result = super.hitTest(point, with: event)
         guard result == self else { return result }
-        return scrollIndicator.frame.minY...scrollIndicator.frame.maxY ~= point.y ? self : nil
+        switch configuration.direction {
+        case .horizontal:
+            return scrollIndicator.frame.minX ... scrollIndicator.frame.maxX ~= point.x ? self : nil
+        case .vertical:
+            return scrollIndicator.frame.minY ... scrollIndicator.frame.maxY ~= point.y ? self : nil
+        }
     }
 
+    @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError()
     }
@@ -70,10 +80,18 @@ public class DMScrollBar: UIView {
         guard let scrollView, let scrollViewLayoutGuide else { return }
         scrollView.addSubview(self)
         let minimumWidth: CGFloat = 20
-        trailingAnchor.constraint(equalTo: scrollViewLayoutGuide.trailingAnchor).isActive = true
-        topAnchor.constraint(equalTo: scrollViewLayoutGuide.topAnchor).isActive = true
-        bottomAnchor.constraint(equalTo: scrollViewLayoutGuide.bottomAnchor).isActive = true
-        widthAnchor.constraint(equalToConstant: max(minimumWidth, configuration.indicator.normalState.size.width)).isActive = true
+        switch configuration.direction {
+        case .horizontal:
+            trailingAnchor.constraint(equalTo: scrollViewLayoutGuide.trailingAnchor).isActive = true
+            leftAnchor.constraint(equalTo: scrollViewLayoutGuide.leftAnchor).isActive = true
+            bottomAnchor.constraint(equalTo: scrollViewLayoutGuide.bottomAnchor).isActive = true
+            heightAnchor.constraint(equalToConstant: max(minimumWidth, configuration.indicator.normalState.size.height)).isActive = true
+        case .vertical:
+            bottomAnchor.constraint(equalTo: scrollViewLayoutGuide.bottomAnchor).isActive = true
+            topAnchor.constraint(equalTo: scrollViewLayoutGuide.topAnchor).isActive = true
+            trailingAnchor.constraint(equalTo: scrollViewLayoutGuide.trailingAnchor).isActive = true
+            widthAnchor.constraint(equalToConstant: max(minimumWidth, configuration.indicator.normalState.size.width)).isActive = true
+        }
     }
 
     private func setupInitialAlpha() {
@@ -81,7 +99,12 @@ public class DMScrollBar: UIView {
     }
 
     private func setupScrollView() {
-        scrollView?.showsVerticalScrollIndicator = false
+        switch configuration.direction {
+        case .horizontal:
+            scrollView?.showsHorizontalScrollIndicator = false
+        case .vertical:
+            scrollView?.showsVerticalScrollIndicator = false
+        }
         scrollView?.layoutIfNeeded()
     }
 
@@ -94,32 +117,66 @@ public class DMScrollBar: UIView {
         stateConfig: DMScrollBar.Configuration.Indicator.StateConfig,
         indicatorTextConfig: DMScrollBar.Configuration.Indicator.ActiveStateConfig.TextConfig?
     ) {
-        let scrollIndicatorInitialDistance = configuration.indicator.animation.animationType == .fadeAndSide && !configuration.isAlwaysVisible && alpha == 0 ?
-            stateConfig.size.width :
-            -stateConfig.insets.right
-        setupConstraint(
-            constraint: &scrollIndicatorTrailingConstraint,
-            build: { scrollIndicator.trailingAnchor.constraint(equalTo: trailingAnchor, constant: $0) },
-            value: scrollIndicatorInitialDistance
-        )
-        setupConstraint(
-            constraint: &scrollIndicatorWidthConstraint,
-            build: { scrollIndicator.widthAnchor.constraint(greaterThanOrEqualToConstant: $0) },
-            value: stateConfig.size.width
-        )
-        setupConstraint(
-            constraint: &scrollIndicatorHeightConstraint,
-            build: scrollIndicator.heightAnchor.constraint(equalToConstant:),
-            value: stateConfig.size.height
-        )
-        if scrollIndicatorTopConstraint == nil {
-            let topOffset = scrollIndicatorOffsetFromScrollOffset(
-                scrollView?.contentOffset.y ?? 0,
-                shouldAdjustOverscrollOffset: false
+        let scrollIndicatorInitialDistance: CGFloat
+        switch configuration.direction {
+        case .horizontal:
+            scrollIndicatorInitialDistance = configuration.indicator.animation.animationType == .fadeAndSide && !configuration.isAlwaysVisible && alpha == 0 ?
+                stateConfig.size.height :
+                -stateConfig.insets.bottom
+            setupConstraint(
+                constraint: &scrollIndicatorBottomConstraint,
+                build: { scrollIndicator.bottomAnchor.constraint(equalTo: bottomAnchor, constant: $0) },
+                value: scrollIndicatorInitialDistance
             )
-            scrollIndicatorTopConstraint = scrollIndicator.topAnchor.constraint(equalTo: topAnchor, constant: topOffset)
-            scrollIndicatorTopConstraint?.isActive = true
+            setupConstraint(
+                constraint: &scrollIndicatorHeightConstraint,
+                build: { scrollIndicator.heightAnchor.constraint(equalToConstant: $0) },
+                value: stateConfig.size.height
+            )
+            setupConstraint(
+                constraint: &scrollIndicatorWidthConstraint,
+                build: scrollIndicator.widthAnchor.constraint(equalToConstant:),
+                value: stateConfig.size.width
+            )
+            if scrollIndicatorLeadingConstraint == nil {
+                let leadingOffset = scrollIndicatorOffsetFromScrollOffset(
+                    scrollView?.contentOffset.x ?? 0,
+                    shouldAdjustOverscrollOffset: false,
+                    direction: .horizontal
+                )
+                scrollIndicatorLeadingConstraint = scrollIndicator.leadingAnchor.constraint(equalTo: leadingAnchor, constant: leadingOffset)
+                scrollIndicatorLeadingConstraint?.isActive = true
+            }
+        case .vertical:
+            scrollIndicatorInitialDistance = configuration.indicator.animation.animationType == .fadeAndSide && !configuration.isAlwaysVisible && alpha == 0 ?
+                stateConfig.size.width :
+                -stateConfig.insets.right
+            setupConstraint(
+                constraint: &scrollIndicatorTrailingConstraint,
+                build: { scrollIndicator.trailingAnchor.constraint(equalTo: trailingAnchor, constant: $0) },
+                value: scrollIndicatorInitialDistance
+            )
+            setupConstraint(
+                constraint: &scrollIndicatorWidthConstraint,
+                build: { scrollIndicator.widthAnchor.constraint(greaterThanOrEqualToConstant: $0) },
+                value: stateConfig.size.width
+            )
+            setupConstraint(
+                constraint: &scrollIndicatorHeightConstraint,
+                build: scrollIndicator.heightAnchor.constraint(equalToConstant:),
+                value: stateConfig.size.height
+            )
+            if scrollIndicatorTopConstraint == nil {
+                let topOffset = scrollIndicatorOffsetFromScrollOffset(
+                    scrollView?.contentOffset.y ?? 0,
+                    shouldAdjustOverscrollOffset: false,
+                    direction: .vertical
+                )
+                scrollIndicatorTopConstraint = scrollIndicator.topAnchor.constraint(equalTo: topAnchor, constant: topOffset)
+                scrollIndicatorTopConstraint?.isActive = true
+            }
         }
+
         scrollIndicator.setup(
             stateConfig: stateConfig,
             textConfig: indicatorTextConfig,
@@ -131,16 +188,28 @@ public class DMScrollBar: UIView {
         guard let infoLabelConfig = configuration.infoLabel else { return }
         addSubview(infoView)
         infoView.setup(config: infoLabelConfig)
-
-        let offsetLabelInitialDistance = infoLabelConfig.animation.animationType == .fadeAndSide ? 0 : infoLabelConfig.distanceToScrollIndicator
-        infoViewToScrollIndicatorConstraint = scrollIndicator.leadingAnchor.constraint(equalTo: infoView.trailingAnchor, constant: offsetLabelInitialDistance)
-        infoViewToScrollIndicatorConstraint?.isActive = true
-        if let maximumWidth = infoLabelConfig.maximumWidth {
-            infoView.widthAnchor.constraint(lessThanOrEqualToConstant: maximumWidth).isActive = true
-        } else if let scrollViewLayoutGuide {
-            infoView.leadingAnchor.constraint(greaterThanOrEqualTo: scrollViewLayoutGuide.leadingAnchor, constant: 8).isActive = true
+        switch configuration.direction {
+        case .horizontal:
+            let offsetLabelInitialDistance = infoLabelConfig.animation.animationType == .fadeAndSide ? 0 : infoLabelConfig.distanceToScrollIndicator
+            infoViewToScrollIndicatorConstraint = scrollIndicator.topAnchor.constraint(equalTo: infoView.bottomAnchor, constant: offsetLabelInitialDistance)
+            infoViewToScrollIndicatorConstraint?.isActive = true
+            if let maximumWidth = infoLabelConfig.maximumWidth {
+                infoView.heightAnchor.constraint(lessThanOrEqualToConstant: maximumWidth).isActive = true
+            } else if let scrollViewLayoutGuide {
+                infoView.topAnchor.constraint(greaterThanOrEqualTo: scrollViewLayoutGuide.topAnchor, constant: 8).isActive = true
+            }
+            infoView.centerXAnchor.constraint(equalTo: scrollIndicator.centerXAnchor).isActive = true
+        case .vertical:
+            let offsetLabelInitialDistance = infoLabelConfig.animation.animationType == .fadeAndSide ? 0 : infoLabelConfig.distanceToScrollIndicator
+            infoViewToScrollIndicatorConstraint = scrollIndicator.leadingAnchor.constraint(equalTo: infoView.trailingAnchor, constant: offsetLabelInitialDistance)
+            infoViewToScrollIndicatorConstraint?.isActive = true
+            if let maximumWidth = infoLabelConfig.maximumWidth {
+                infoView.widthAnchor.constraint(lessThanOrEqualToConstant: maximumWidth).isActive = true
+            } else if let scrollViewLayoutGuide {
+                infoView.leadingAnchor.constraint(greaterThanOrEqualTo: scrollViewLayoutGuide.leadingAnchor, constant: 8).isActive = true
+            }
+            infoView.centerYAnchor.constraint(equalTo: scrollIndicator.centerYAnchor).isActive = true
         }
-        infoView.centerYAnchor.constraint(equalTo: scrollIndicator.centerYAnchor).isActive = true
     }
 
     // MARK: - Scroll view observation
@@ -151,7 +220,10 @@ public class DMScrollBar: UIView {
             .removeDuplicates()
             .withPrevious()
             .dropFirst(2)
-            .sink { [weak self] in self?.handleScrollViewOffsetChange(previousOffset: $0, newOffset: $1) }
+            .sink { [weak self] in
+                guard let self = self else { return }
+                handleScrollViewOffsetChange(previousOffset: $0, newOffset: $1, direction: configuration.direction)
+            }
             .store(in: &cancellables)
         scrollView?
             .panGestureRecognizer
@@ -160,11 +232,9 @@ public class DMScrollBar: UIView {
             .removeDuplicates()
             .sink { [weak self] in self?.handleScrollViewGestureState($0) }
             .store(in: &cancellables)
-        /**
-         Next observation is needed to keep scrollBar always on top, when new subviews are added to the scrollView.
-         For example, when adding scrollBar to the tableView, the tableView section headers overlaps scrollBar, and therefore scrollBar gestures are not recognized.
-         layer.sublayers property is used for observation because subviews property is not KVO compliant.
-         */
+        /// Next observation is needed to keep scrollBar always on top, when new subviews are added to the scrollView.
+        /// For example, when adding scrollBar to the tableView, the tableView section headers overlaps scrollBar, and therefore scrollBar gestures are not recognized.
+        /// layer.sublayers property is used for observation because subviews property is not KVO compliant.
         scrollView?
             .publisher(for: \.layer.sublayers)
             .sink { [weak self] _ in self?.bringScrollBarToFront() }
@@ -172,27 +242,74 @@ public class DMScrollBar: UIView {
     }
 
     private func bringScrollBarToFront() {
-        scrollView?.bringSubviewToFront(self)
+        guard let scrollView else { return }
+
+        let numberOfScrollBars = scrollView.subviews.filter { $0.isKind(of: DMScrollBar.self) }.count
+
+        switch numberOfScrollBars {
+        case 1:
+            if let lastSubview = scrollView.layer.sublayers?.last?.delegate, !lastSubview.isKind(of: DMScrollBar.self) {
+                scrollView.bringSubviewToFront(self)
+            }
+        case 2:
+            let isTopSubview = scrollView.layer.sublayers?.last?.delegate?.isKind(of: DMScrollBar.self) ?? false
+            let isSecondTopSubview = scrollView.layer.sublayers?.lastlast?.delegate?.isKind(of: DMScrollBar.self) ?? false
+            switch (isTopSubview, isSecondTopSubview) {
+            case (false, false):
+                scrollView.bringSubviewToFront(self)
+            case (true, false):
+                if let index = scrollView.subviews.firstIndex(of: self) {
+                    scrollView.exchangeSubview(at: index, withSubviewAt: scrollView.subviews.count - 2)
+                }
+            case (false, true):
+                if let index = scrollView.subviews.firstIndex(of: self) {
+                    scrollView.exchangeSubview(at: index, withSubviewAt: scrollView.subviews.count - 1)
+                }
+            case (true, true):
+                break
+            }
+            if !isTopSubview || !isSecondTopSubview {
+                scrollView.bringSubviewToFront(self)
+            }
+        default:
+            scrollView.bringSubviewToFront(self)
+        }
     }
 
-    private func handleScrollViewOffsetChange(previousOffset: CGPoint?, newOffset: CGPoint) {
-        guard maxScrollViewOffset > 30 else { return } // Content size should be 30px larger than scrollView.height
-        animateScrollBarShow()
-        scrollIndicatorTopConstraint?.constant = scrollIndicatorOffsetFromScrollOffset(
-            newOffset.y,
-            shouldAdjustOverscrollOffset: panGestureRecognizer?.state == .possible && decelerateAnimation == nil
-        )
-        startHideTimerIfNeeded()
+    private func handleScrollViewOffsetChange(previousOffset: CGPoint?, newOffset: CGPoint, direction: Configuration.Direction) {
+        guard maxScrollViewOffset(direction: direction) > 30 else { return } // Content size should be 30px larger than scrollView.height
+        animateScrollBarShow(direction: direction)
+        switch direction {
+        case .horizontal:
+            scrollIndicatorLeadingConstraint?.constant = scrollIndicatorOffsetFromScrollOffset(
+                newOffset.x,
+                shouldAdjustOverscrollOffset: panGestureRecognizer?.state == .possible && decelerateAnimation == nil,
+                direction: direction
+            )
+        case .vertical:
+            scrollIndicatorTopConstraint?.constant = scrollIndicatorOffsetFromScrollOffset(
+                newOffset.y,
+                shouldAdjustOverscrollOffset: panGestureRecognizer?.state == .possible && decelerateAnimation == nil,
+                direction: direction
+            )
+        }
+        startHideTimerIfNeeded(direction: direction)
         /// Next code is needed to keep additional info label and scroll bar titles up-to-date during scroll view decelerate
         guard isPanGestureInactive else { return }
         if infoView.alpha == 1 {
-            updateAdditionalInfoViewState(forScrollOffset: newOffset.y, previousOffset: previousOffset?.y)
+            switch direction {
+            case .horizontal:
+                updateAdditionalInfoViewState(forScrollOffset: newOffset.x, previousOffset: previousOffset?.x, direction: .horizontal)
+            case .vertical:
+                updateAdditionalInfoViewState(forScrollOffset: newOffset.y, previousOffset: previousOffset?.y, direction: .vertical)
+            }
         }
         if scrollIndicator.isIndicatorLabelVisible {
             updateScrollIndicatorText(
-                forScrollOffset: newOffset.y,
-                previousOffset: previousOffset?.y,
-                textConfig: configuration.indicator.activeState.textConfig
+                forScrollOffset: direction == .horizontal ? newOffset.x : newOffset.y,
+                previousOffset: direction == .horizontal ? previousOffset?.x : previousOffset?.y,
+                textConfig: configuration.indicator.activeState.textConfig,
+                direction: direction
             )
         }
     }
@@ -223,73 +340,94 @@ public class DMScrollBar: UIView {
     }
 
     @objc private func handlePanGesture(_ recognizer: UIPanGestureRecognizer) {
+        let direction = configuration.direction
         switch recognizer.state {
-        case .began: handlePanGestureBegan(recognizer)
-        case .changed: handlePanGestureChanged(recognizer)
-        case .ended, .cancelled, .failed: handlePanGestureEnded(recognizer)
+        case .began: handlePanGestureBegan(recognizer, direction: direction)
+        case .changed: handlePanGestureChanged(recognizer, direction: direction)
+        case .ended, .cancelled, .failed: handlePanGestureEnded(recognizer, direction: direction)
         default: break
         }
     }
 
-    private func handlePanGestureBegan(_ recognizer: UIPanGestureRecognizer) {
+    private func handlePanGestureBegan(_ recognizer: UIPanGestureRecognizer, direction: Configuration.Direction) {
         invalidateDecelerateAnimation()
-        scrollIndicatorOffsetOnGestureStart = scrollIndicatorTopConstraint?.constant
+        switch direction {
+        case .horizontal:
+            scrollIndicatorOffsetOnGestureStart = scrollIndicatorLeadingConstraint?.constant
+        case .vertical:
+            scrollIndicatorOffsetOnGestureStart = scrollIndicatorTopConstraint?.constant
+        }
         if wasInteractionStartedWithLongPress {
             wasInteractionStartedWithLongPress = false
             longPressGestureRecognizer?.cancel()
         } else {
-            gestureInteractionStarted()
+            gestureInteractionStarted(direction: direction)
         }
     }
 
-    private func handlePanGestureChanged(_ recognizer: UIPanGestureRecognizer) {
+    private func handlePanGestureChanged(_ recognizer: UIPanGestureRecognizer, direction: Configuration.Direction) {
         guard let scrollView else { return }
         let offset = recognizer.translation(in: scrollView)
         let scrollIndicatorOffsetOnGestureStart = scrollIndicatorOffsetOnGestureStart ?? 0
-        let scrollIndicatorOffset = scrollIndicatorOffsetOnGestureStart + offset.y
-        let newScrollOffset = scrollOffsetFromScrollIndicatorOffset(scrollIndicatorOffset)
+        let scrollIndicatorOffset = scrollIndicatorOffsetOnGestureStart + (direction == .horizontal ? offset.x : offset.y)
+        let newScrollOffset = scrollOffsetFromScrollIndicatorOffset(scrollIndicatorOffset, direction: direction)
         let previousOffset = scrollView.contentOffset
-        scrollView.setContentOffset(CGPoint(x: 0, y: newScrollOffset), animated: false)
-        updateAdditionalInfoViewState(forScrollOffset: newScrollOffset, previousOffset: previousOffset.y)
-        updateScrollIndicatorText(
-            forScrollOffset: newScrollOffset,
-            previousOffset: previousOffset.y,
-            textConfig: configuration.indicator.activeState.textConfig
-        )
+        switch configuration.direction {
+        case .horizontal:
+            scrollView.setContentOffset(CGPoint(x: newScrollOffset, y: scrollView.contentOffset.y), animated: false)
+            updateAdditionalInfoViewState(forScrollOffset: newScrollOffset, previousOffset: previousOffset.x, direction: .horizontal)
+            updateScrollIndicatorText(
+                forScrollOffset: newScrollOffset,
+                previousOffset: previousOffset.x,
+                textConfig: configuration.indicator.activeState.textConfig,
+                direction: direction
+            )
+        case .vertical:
+            scrollView.setContentOffset(CGPoint(x: scrollView.contentOffset.x, y: newScrollOffset), animated: false)
+            updateAdditionalInfoViewState(forScrollOffset: newScrollOffset, previousOffset: previousOffset.y, direction: .vertical)
+            updateScrollIndicatorText(
+                forScrollOffset: newScrollOffset,
+                previousOffset: previousOffset.y,
+                textConfig: configuration.indicator.activeState.textConfig,
+                direction: direction
+            )
+        }
     }
 
-    private func handlePanGestureEnded(_ recognizer: UIPanGestureRecognizer) {
+    private func handlePanGestureEnded(_ recognizer: UIPanGestureRecognizer, direction: Configuration.Direction) {
         guard let scrollView else { return }
         scrollIndicatorOffsetOnGestureStart = nil
-        let velocity = recognizer.velocity(in: scrollView).withZeroX
-        let isSignificantVelocity = abs(velocity.y) > 100
-        let isOffsetInScrollBounds = maxScrollViewOffset > minScrollViewOffset ?
-            minScrollViewOffset...maxScrollViewOffset ~= scrollView.contentOffset.y :
+        let velocity = direction == .horizontal ? recognizer.velocity(in: scrollView).withZeroY : recognizer.velocity(in: scrollView).withZeroX
+        let isSignificantVelocity = configuration.direction == .horizontal ? abs(velocity.x) > 100 : abs(velocity.y) > 100
+        let contentOffset = configuration.direction == .horizontal ? scrollView.contentOffset.x : scrollView.contentOffset.y
+        let isOffsetInScrollBounds = maxScrollViewOffset(direction: direction) > minScrollViewOffset(direction: direction) ?
+            minScrollViewOffset(direction: direction) ... maxScrollViewOffset(direction: direction) ~= contentOffset :
             false
-        gestureInteractionEnded(willDecelerate: isSignificantVelocity || !isOffsetInScrollBounds)
+        gestureInteractionEnded(willDecelerate: isSignificantVelocity || !isOffsetInScrollBounds, direction: direction)
         switch (isSignificantVelocity, isOffsetInScrollBounds) {
-        case (true, true): startDeceleration(withVelocity: velocity)
-        case (true, false): bounceScrollViewToBoundsIfNeeded(velocity: velocity)
+        case (true, true): startDeceleration(withVelocity: velocity, direction: direction)
+        case (true, false): bounceScrollViewToBoundsIfNeeded(velocity: velocity, direction: direction)
         case (false, true):
             #if !os(visionOS)
             generateHapticFeedback()
             #endif
-        case (false, false): bounceScrollViewToBoundsIfNeeded(velocity: .zero)
+        case (false, false): bounceScrollViewToBoundsIfNeeded(velocity: .zero, direction: direction)
         }
     }
 
     @objc private func handleLongPressGesture(_ recognizer: UILongPressGestureRecognizer) {
+        let direction = configuration.direction
         switch recognizer.state {
         case .began:
             wasInteractionStartedWithLongPress = true
-            gestureInteractionStarted()
+            gestureInteractionStarted(direction: direction)
         case .cancelled where panGestureRecognizer?.state.isInactive == true:
-            gestureInteractionEnded(willDecelerate: false)
+            gestureInteractionEnded(willDecelerate: false, direction: direction)
             #if !os(visionOS)
             generateHapticFeedback()
             #endif
         case .ended, .failed:
-            gestureInteractionEnded(willDecelerate: false)
+            gestureInteractionEnded(willDecelerate: false, direction: direction)
             #if !os(visionOS)
             generateHapticFeedback()
             #endif
@@ -297,9 +435,9 @@ public class DMScrollBar: UIView {
         }
     }
 
-    private func gestureInteractionStarted() {
-        let scrollOffset = scrollOffsetFromScrollIndicatorOffset(scrollIndicatorTopConstraint?.constant ?? 0)
-        updateAdditionalInfoViewState(forScrollOffset: scrollOffset, previousOffset: nil)
+    private func gestureInteractionStarted(direction: Configuration.Direction) {
+        let scrollOffset = scrollOffsetFromScrollIndicatorOffset((direction == .horizontal ? scrollIndicatorLeadingConstraint?.constant : scrollIndicatorTopConstraint?.constant) ?? 0, direction: direction)
+        updateAdditionalInfoViewState(forScrollOffset: scrollOffset, previousOffset: nil, direction: direction)
         invalidateHideTimer()
         #if !os(visionOS)
         generateHapticFeedback()
@@ -307,20 +445,21 @@ public class DMScrollBar: UIView {
         updateScrollIndicatorText(
             forScrollOffset: scrollOffset,
             previousOffset: nil,
-            textConfig: configuration.indicator.activeState.textConfig
+            textConfig: configuration.indicator.activeState.textConfig,
+            direction: direction
         )
         switch configuration.indicator.activeState {
         case .unchanged: break
-        case .scaled(let factor): animateIndicatorStateChange(to: configuration.indicator.normalState.applying(scaleFactor: factor), textConfig: nil)
-        case .custom(let config, let textConfig): animateIndicatorStateChange(to: config, textConfig: textConfig)
+        case let .scaled(factor): animateIndicatorStateChange(to: configuration.indicator.normalState.applying(scaleFactor: factor), textConfig: nil)
+        case let .custom(config, textConfig): animateIndicatorStateChange(to: config, textConfig: textConfig)
         }
     }
 
-    private func gestureInteractionEnded(willDecelerate: Bool) {
-        startHideTimerIfNeeded()
+    private func gestureInteractionEnded(willDecelerate: Bool, direction: Configuration.Direction) {
+        startHideTimerIfNeeded(direction: direction)
         switch configuration.indicator.activeState {
         case .unchanged: return
-        case .custom(_, let textConfig) where textConfig != nil && willDecelerate: return
+        case let .custom(_, textConfig) where textConfig != nil && willDecelerate: return
         case .custom, .scaled: animateIndicatorStateChange(to: configuration.indicator.normalState, textConfig: nil)
         }
     }
@@ -345,10 +484,10 @@ public class DMScrollBar: UIView {
         #endif
     }
 
-    private func startDeceleration(withVelocity velocity: CGPoint) {
+    private func startDeceleration(withVelocity velocity: CGPoint, direction: Configuration.Direction) {
         guard let scrollView else { return }
         let parameters = DecelerationTimingParameters(
-            initialValue: scrollIndicatorTopOffset,
+            initialValue: scrollIndicatorOffset,
             initialVelocity: velocity,
             decelerationRate: UIScrollView.DecelerationRate.normal.rawValue,
             threshold: 0.5 / scale
@@ -357,7 +496,7 @@ public class DMScrollBar: UIView {
         let destination = parameters.destination
         let intersection = getIntersection(
             rect: scrollIndicatorOffsetBounds,
-            segment: (scrollIndicatorTopOffset, destination)
+            segment: (scrollIndicatorOffset, destination)
         )
 
         let duration: TimeInterval = {
@@ -374,12 +513,19 @@ public class DMScrollBar: UIView {
             duration: duration,
             animations: { [weak self] _, time in
                 guard let self else { return }
-                let newY = self.scrollOffsetFromScrollIndicatorOffset(parameters.value(at: time).y)
-                if abs(scrollView.contentOffset.y - newY) < parameters.threshold { return }
-                scrollView.setContentOffset(CGPoint(x: 0, y: newY), animated: false)
+                switch direction {
+                case .horizontal:
+                    let newX = self.scrollOffsetFromScrollIndicatorOffset(parameters.value(at: time).x, direction: .horizontal)
+                    if abs(scrollView.contentOffset.x - newX) < parameters.threshold { return }
+                    scrollView.setContentOffset(CGPoint(x: newX, y: scrollView.contentOffset.y), animated: false)
+                case .vertical:
+                    let newY = self.scrollOffsetFromScrollIndicatorOffset(parameters.value(at: time).y, direction: .vertical)
+                    if abs(scrollView.contentOffset.y - newY) < parameters.threshold { return }
+                    scrollView.setContentOffset(CGPoint(x: scrollView.contentOffset.x, y: newY), animated: false)
+                }
             }, completion: { [weak self] finished in
                 guard let self else { return }
-                guard finished && intersection != nil else {
+                guard finished, intersection != nil else {
                     self.invalidateDecelerateAnimation()
                     if self.configuration.indicator.activeState.textConfig != nil {
                         self.animateIndicatorStateChange(to: self.configuration.indicator.normalState, textConfig: nil)
@@ -387,16 +533,17 @@ public class DMScrollBar: UIView {
                     return
                 }
                 let velocity = parameters.velocity(at: duration)
-                self.bounce(withVelocity: velocity)
-            })
+                self.bounce(withVelocity: velocity, direction: direction)
+            }
+        )
     }
 
-    private func bounce(withVelocity velocity: CGPoint, spring: Spring = .default) {
+    private func bounce(withVelocity velocity: CGPoint, spring: Spring = .default, direction: Configuration.Direction) {
         guard let scrollView else { return }
-        let velocityMultiplier = interval(1, maxScrollViewOffset / maxScrollIndicatorOffset, 30)
+        let velocityMultiplier = interval(1, maxScrollViewOffset(direction: direction) / maxScrollIndicatorOffset(direction: direction), 30)
         let velocity = interval(-7000, velocity.y * velocityMultiplier, 7000)
-        var previousScrollViewOffsetBounds = self.scrollViewOffsetBounds
-        var restOffset = scrollView.contentOffset.clamped(to: self.scrollViewOffsetBounds)
+        var previousScrollViewOffsetBounds = scrollViewOffsetBounds
+        var restOffset = scrollView.contentOffset.clamped(to: scrollViewOffsetBounds)
         let displacement = scrollView.contentOffset - restOffset
         let threshold = 0.5 / scale
         var previousSafeInset = scrollView.safeAreaInsets
@@ -404,23 +551,35 @@ public class DMScrollBar: UIView {
         let parameters = SpringTimingParameters(
             spring: spring,
             displacement: displacement,
-            initialVelocity: CGPoint(x: 0, y: velocity),
+            initialVelocity: CGPoint(x: velocity, y: velocity),
             threshold: threshold
         )
 
         decelerateAnimation = TimerAnimation(
             duration: parameters.duration,
             animations: { _, time in
-                let topSafeInsetDif = previousSafeInset.top - scrollView.safeAreaInsets.top
-                let bottomSafeInsetDif = previousSafeInset.bottom - scrollView.safeAreaInsets.bottom
-                previousScrollViewOffsetBounds = previousScrollViewOffsetBounds.inset(by: UIEdgeInsets(top: topSafeInsetDif, left: 0, bottom: bottomSafeInsetDif, right: 0))
-                restOffset.y += self.scrollViewOffsetBounds.height - previousScrollViewOffsetBounds.height + topSafeInsetDif + bottomSafeInsetDif
-                previousScrollViewOffsetBounds = self.scrollViewOffsetBounds
-                previousSafeInset = scrollView.safeAreaInsets
-                let offset = restOffset + parameters.value(at: time)
-                scrollView.setContentOffset(offset, animated: false)
+                switch direction {
+                case .horizontal:
+                    let leftSafeInsetDif = previousSafeInset.left - scrollView.safeAreaInsets.left
+                    let rightSafeInsetDif = previousSafeInset.right - scrollView.safeAreaInsets.right
+                    previousScrollViewOffsetBounds = previousScrollViewOffsetBounds.inset(by: UIEdgeInsets(top: 0, left: leftSafeInsetDif, bottom: 0, right: rightSafeInsetDif))
+                    restOffset.x += self.scrollViewOffsetBounds.width - previousScrollViewOffsetBounds.width + leftSafeInsetDif + rightSafeInsetDif
+                    previousScrollViewOffsetBounds = self.scrollViewOffsetBounds
+                    previousSafeInset = scrollView.safeAreaInsets
+                    let offset = restOffset + parameters.value(at: time)
+                    scrollView.setContentOffset(offset, animated: false)
+                case .vertical:
+                    let topSafeInsetDif = previousSafeInset.top - scrollView.safeAreaInsets.top
+                    let bottomSafeInsetDif = previousSafeInset.bottom - scrollView.safeAreaInsets.bottom
+                    previousScrollViewOffsetBounds = previousScrollViewOffsetBounds.inset(by: UIEdgeInsets(top: topSafeInsetDif, left: 0, bottom: bottomSafeInsetDif, right: 0))
+                    restOffset.y += self.scrollViewOffsetBounds.height - previousScrollViewOffsetBounds.height + topSafeInsetDif + bottomSafeInsetDif
+                    previousScrollViewOffsetBounds = self.scrollViewOffsetBounds
+                    previousSafeInset = scrollView.safeAreaInsets
+                    let offset = restOffset + parameters.value(at: time)
+                    scrollView.setContentOffset(offset, animated: false)
+                }
             },
-            completion: { [weak self] finished in
+            completion: { [weak self] _ in
                 guard let self else { return }
                 self.invalidateDecelerateAnimation()
                 if self.configuration.indicator.activeState.textConfig == nil { return }
@@ -429,19 +588,28 @@ public class DMScrollBar: UIView {
         )
     }
 
-    private func bounceScrollViewToBoundsIfNeeded(velocity: CGPoint) {
+    private func bounceScrollViewToBoundsIfNeeded(velocity: CGPoint, direction: Configuration.Direction) {
         guard let scrollView else { return }
         let overscroll: CGFloat = {
-            if scrollView.contentOffset.y < minScrollViewOffset {
-                return minScrollViewOffset - scrollView.contentOffset.y
-            } else if scrollView.contentOffset.y > maxScrollViewOffset {
-                return scrollView.contentOffset.y - maxScrollViewOffset
+            switch direction {
+            case .horizontal:
+                if scrollView.contentOffset.x < minScrollViewOffset(direction: .horizontal) {
+                    return minScrollViewOffset(direction: .horizontal) - scrollView.contentOffset.x
+                } else if scrollView.contentOffset.x > maxScrollViewOffset(direction: .horizontal) {
+                    return scrollView.contentOffset.x - maxScrollViewOffset(direction: .horizontal)
+                }
+            case .vertical:
+                if scrollView.contentOffset.y < minScrollViewOffset(direction: .vertical) {
+                    return minScrollViewOffset(direction: .vertical) - scrollView.contentOffset.y
+                } else if scrollView.contentOffset.y > maxScrollViewOffset(direction: .vertical) {
+                    return scrollView.contentOffset.y - maxScrollViewOffset(direction: .vertical)
+                }
             }
             return 0
         }()
         if overscroll == 0 { return }
-        let additionalStiffness = (overscroll / scrollView.frame.height) * 400
-        bounce(withVelocity: velocity, spring: Spring(mass: 1, stiffness: 100 + additionalStiffness, dampingRatio: 1))
+        let additionalStiffness = if direction == .horizontal { (overscroll / scrollView.frame.width) * 400 } else { (overscroll / scrollView.frame.height) * 400 }
+        bounce(withVelocity: velocity, spring: Spring(mass: 1, stiffness: 100 + additionalStiffness, dampingRatio: 1), direction: direction)
     }
 
     private func invalidateDecelerateAnimation() {
@@ -451,75 +619,118 @@ public class DMScrollBar: UIView {
 
     // MARK: - Calculations
 
-    private var minScrollIndicatorOffset: CGFloat {
+    private var minScrollIndicatorOffsetY: CGFloat {
         return configuration.indicator.normalState.insets.top
     }
 
-    private var maxScrollIndicatorOffset: CGFloat {
+    private var maxScrollIndicatorOffsetY: CGFloat {
         return frame.height - configuration.indicator.normalState.size.height - configuration.indicator.normalState.insets.bottom
     }
 
-    private var minScrollViewOffset: CGFloat {
+    private var minScrollIndicatorOffsetX: CGFloat {
+        return configuration.indicator.normalState.insets.left
+    }
+
+    private var maxScrollIndicatorOffsetX: CGFloat {
+        return frame.width - configuration.indicator.normalState.size.width - configuration.indicator.normalState.insets.right
+    }
+
+    private var minScrollViewOffsetY: CGFloat {
         guard let scrollView else { return 0 }
         return -scrollView.contentInset.top - scrollView.safeAreaInsets.top
     }
 
-    private var maxScrollViewOffset: CGFloat {
+    private var maxScrollViewOffsetY: CGFloat {
         guard let scrollView else { return 0 }
         return scrollView.contentSize.height - scrollView.frame.height + scrollView.safeAreaInsets.bottom + scrollView.contentInset.bottom
     }
 
+    private var minScrollViewOffsetX: CGFloat {
+        guard let scrollView else { return 0 }
+        return -scrollView.contentInset.left - scrollView.safeAreaInsets.left
+    }
+
+    private var maxScrollViewOffsetX: CGFloat {
+        guard let scrollView else { return 0 }
+        return scrollView.contentSize.width - scrollView.frame.width + scrollView.safeAreaInsets.right + scrollView.contentInset.right
+    }
+
+    private func minScrollIndicatorOffset(direction: Configuration.Direction) -> CGFloat {
+        direction == .horizontal ? minScrollIndicatorOffsetX : minScrollIndicatorOffsetY
+    }
+
+    private func maxScrollIndicatorOffset(direction: Configuration.Direction) -> CGFloat {
+        direction == .horizontal ? maxScrollIndicatorOffsetX : maxScrollIndicatorOffsetY
+    }
+
+    private func maxScrollViewOffset(direction: Configuration.Direction) -> CGFloat {
+        direction == .horizontal ? maxScrollViewOffsetX : maxScrollViewOffsetY
+    }
+
+    private func minScrollViewOffset(direction: Configuration.Direction) -> CGFloat {
+        direction == .horizontal ? minScrollViewOffsetX : minScrollViewOffsetY
+    }
+
     private var scrollIndicatorOffsetBounds: CGRect {
         CGRect(
-            x: 0,
-            y: minScrollIndicatorOffset,
-            width: CGFloat.leastNonzeroMagnitude,
-            height: maxScrollIndicatorOffset - minScrollIndicatorOffset
+            x: minScrollIndicatorOffset(direction: .horizontal),
+            y: minScrollIndicatorOffset(direction: .vertical),
+            width: maxScrollIndicatorOffset(direction: .horizontal) - minScrollIndicatorOffset(direction: .horizontal),
+            height: maxScrollIndicatorOffset(direction: .vertical) - minScrollIndicatorOffset(direction: .vertical)
         )
     }
 
     private var scrollViewOffsetBounds: CGRect {
         CGRect(
-            x: 0,
-            y: minScrollViewOffset,
-            width: CGFloat.leastNonzeroMagnitude,
-            height: maxScrollViewOffset - minScrollViewOffset
+            x: minScrollViewOffset(direction: .horizontal),
+            y: minScrollViewOffset(direction: .vertical),
+            width: maxScrollViewOffset(direction: .horizontal) - minScrollViewOffset(direction: .horizontal),
+            height: maxScrollViewOffset(direction: .vertical) - minScrollViewOffset(direction: .vertical)
         )
     }
 
-    private var scrollIndicatorTopOffset: CGPoint {
-        CGPoint(x: 0, y: scrollIndicatorTopConstraint?.constant ?? 0)
+    private var scrollIndicatorOffset: CGPoint {
+        CGPoint(x: scrollIndicatorLeadingConstraint?.constant ?? 0, y: scrollIndicatorTopConstraint?.constant ?? 0)
     }
 
-    private func scrollOffsetFromScrollIndicatorOffset(_ scrollIndicatorOffset: CGFloat) -> CGFloat {
-        let adjustedScrollIndicatorOffset = adjustedScrollIndicatorOffsetForOverscroll(scrollIndicatorOffset, isPanGestureSource: true)
-        let scrollIndicatorOffsetPercent = (adjustedScrollIndicatorOffset - minScrollIndicatorOffset) / (maxScrollIndicatorOffset - minScrollIndicatorOffset)
-        let scrollOffset = scrollIndicatorOffsetPercent * (maxScrollViewOffset - minScrollViewOffset) + minScrollViewOffset
+    private func scrollOffsetFromScrollIndicatorOffset(_ scrollIndicatorOffset: CGFloat, direction: Configuration.Direction) -> CGFloat {
+        let adjustedScrollIndicatorOffset = adjustedScrollIndicatorOffsetForOverscroll(scrollIndicatorOffset, isPanGestureSource: true, direction: direction)
+        let scrollIndicatorOffsetPercent = (adjustedScrollIndicatorOffset - minScrollIndicatorOffset(direction: direction)) / (maxScrollIndicatorOffset(direction: direction) - minScrollIndicatorOffset(direction: direction))
+        let scrollOffset = scrollIndicatorOffsetPercent * (maxScrollViewOffset(direction: direction) - minScrollViewOffset(direction: direction)) + minScrollViewOffset(direction: direction)
 
         return scrollOffset
     }
 
-    private func scrollIndicatorOffsetFromScrollOffset(_ scrollOffset: CGFloat, shouldAdjustOverscrollOffset: Bool) -> CGFloat {
-        let scrollOffsetPercent = (scrollOffset - minScrollViewOffset) / (maxScrollViewOffset - minScrollViewOffset)
-        let scrollIndicatorOffset = scrollOffsetPercent * (maxScrollIndicatorOffset - minScrollIndicatorOffset) + minScrollIndicatorOffset
+    private func scrollIndicatorOffsetFromScrollOffset(_ scrollOffset: CGFloat, shouldAdjustOverscrollOffset: Bool, direction: Configuration.Direction) -> CGFloat {
+        let scrollOffsetPercent = (scrollOffset - minScrollViewOffset(direction: direction)) / (maxScrollViewOffset(direction: direction) - minScrollViewOffset(direction: direction))
+        let scrollIndicatorOffset = scrollOffsetPercent * (maxScrollIndicatorOffset(direction: direction) - minScrollIndicatorOffset(direction: direction)) + minScrollIndicatorOffset(direction: direction)
 
         return shouldAdjustOverscrollOffset ?
-            adjustedScrollIndicatorOffsetForOverscroll(scrollIndicatorOffset, isPanGestureSource: false) :
+            adjustedScrollIndicatorOffsetForOverscroll(scrollIndicatorOffset, isPanGestureSource: false, direction: direction) :
             scrollIndicatorOffset
     }
 
-    private func adjustedScrollIndicatorOffsetForOverscroll(_ offset: CGFloat, isPanGestureSource: Bool) -> CGFloat {
+    private func adjustedScrollIndicatorOffsetForOverscroll(_ offset: CGFloat, isPanGestureSource: Bool, direction: Configuration.Direction) -> CGFloat {
         let indicatorToScrollRatio = scrollIndicatorOffsetBounds.height / scrollViewOffsetBounds.height
         let coefficient = isPanGestureSource ?
             RubberBand.defaultCoefficient * indicatorToScrollRatio :
             RubberBand.defaultCoefficient / indicatorToScrollRatio
         let adjustedCoefficient = interval(0.1, coefficient, RubberBand.defaultCoefficient)
 
-        return RubberBand(
-            coeff: adjustedCoefficient,
-            dims: frame.size,
-            bounds: scrollIndicatorOffsetBounds
-        ).clamp(CGPoint(x: 0, y: offset)).y
+        switch direction {
+        case .horizontal:
+            return RubberBand(
+                coeff: adjustedCoefficient,
+                dims: frame.size,
+                bounds: scrollIndicatorOffsetBounds
+            ).clamp(CGPoint(x: offset, y: 0)).x
+        case .vertical:
+            return RubberBand(
+                coeff: adjustedCoefficient,
+                dims: frame.size,
+                bounds: scrollIndicatorOffsetBounds
+            ).clamp(CGPoint(x: 0, y: offset)).y
+        }
     }
 
     // MARK: - Private methods
@@ -528,18 +739,23 @@ public class DMScrollBar: UIView {
         return panGestureRecognizer?.state.isInactive == true
     }
 
-    private func scrollIndicatorOffset(forContentOffset contentOffset: CGFloat) -> CGFloat {
-        return contentOffset + scrollIndicatorTopOffset.y + infoView.frame.height / 2
+    private func scrollIndicatorOffset(forContentOffset contentOffset: CGFloat, direction: Configuration.Direction) -> CGFloat {
+        switch direction {
+        case .horizontal:
+            return contentOffset + scrollIndicatorOffset.x + infoView.frame.width / 2
+        case .vertical:
+            return contentOffset + scrollIndicatorOffset.y + infoView.frame.height / 2
+        }
     }
 
-    private func startHideTimerIfNeeded() {
+    private func startHideTimerIfNeeded(direction: Configuration.Direction) {
         guard isPanGestureInactive else { return }
         invalidateHideTimer()
         hideTimer = Timer.scheduledTimer(
             withTimeInterval: configuration.hideTimeInterval,
             repeats: false
         ) { [weak self] _ in
-            self?.animateScrollBarHide()
+            self?.animateScrollBarHide(direction: direction)
             self?.invalidateHideTimer()
         }
     }
@@ -549,16 +765,21 @@ public class DMScrollBar: UIView {
         hideTimer = nil
     }
 
-    private func updateAdditionalInfoViewState(forScrollOffset scrollViewOffset: CGFloat, previousOffset: CGFloat?) {
+    private func updateAdditionalInfoViewState(forScrollOffset scrollViewOffset: CGFloat, previousOffset: CGFloat?, direction: Configuration.Direction) {
         if configuration.infoLabel == nil { return }
         guard let offsetLabelText = delegate?.infoLabelText(
             forContentOffset: scrollViewOffset,
-            scrollIndicatorOffset: scrollIndicatorOffset(forContentOffset: scrollViewOffset)
+            scrollIndicatorOffset: scrollIndicatorOffset(forContentOffset: scrollViewOffset, direction: direction)
         ) else { return animateAdditionalInfoViewHide() }
         animateAdditionalInfoViewShow()
         let direction: CATransitionSubtype? = {
             guard let previousOffset else { return nil }
-            return scrollViewOffset > previousOffset ? .fromTop : .fromBottom
+            switch direction {
+            case .horizontal:
+                return scrollViewOffset > previousOffset ? .fromLeft : .fromRight
+            case .vertical:
+                return scrollViewOffset > previousOffset ? .fromTop : .fromBottom
+            }
         }()
         infoView.updateText(text: offsetLabelText, direction: direction)
     }
@@ -566,23 +787,29 @@ public class DMScrollBar: UIView {
     private func updateScrollIndicatorText(
         forScrollOffset scrollViewOffset: CGFloat,
         previousOffset: CGFloat?,
-        textConfig: DMScrollBar.Configuration.Indicator.ActiveStateConfig.TextConfig?
+        textConfig: DMScrollBar.Configuration.Indicator.ActiveStateConfig.TextConfig?,
+        direction scrollDirection: Configuration.Direction
     ) {
         let direction: CATransitionSubtype? = {
             guard let previousOffset else { return nil }
-            return scrollViewOffset > previousOffset ? .fromTop : .fromBottom
+            switch scrollDirection {
+            case .horizontal:
+                return scrollViewOffset > previousOffset ? .fromLeft : .fromRight
+            case .vertical:
+                return scrollViewOffset > previousOffset ? .fromTop : .fromBottom
+            }
         }()
         scrollIndicator.updateScrollIndicatorText(
             direction: direction,
             scrollBarLabelText: delegate?.scrollBarText(
                 forContentOffset: scrollViewOffset,
-                scrollIndicatorOffset: scrollIndicatorOffset(forContentOffset: scrollViewOffset)
+                scrollIndicatorOffset: scrollIndicatorOffset(forContentOffset: scrollViewOffset, direction: scrollDirection)
             ),
             textConfig: textConfig
         )
     }
 
-    private func animateScrollBarShow() {
+    private func animateScrollBarShow(direction: Configuration.Direction) {
         guard alpha == 0 else { return }
         setup(stateConfig: configuration.indicator.normalState, indicatorTextConfig: nil)
         layoutIfNeeded()
@@ -590,20 +817,30 @@ public class DMScrollBar: UIView {
             guard let self else { return }
             self.alpha = 1
             guard self.configuration.indicator.animation.animationType == .fadeAndSide else { return }
-            self.scrollIndicatorTrailingConstraint?.constant = -self.configuration.indicator.normalState.insets.right
+            switch direction {
+            case .horizontal:
+                self.scrollIndicatorBottomConstraint?.constant = -self.configuration.indicator.normalState.insets.bottom
+            case .vertical:
+                self.scrollIndicatorTrailingConstraint?.constant = -self.configuration.indicator.normalState.insets.right
+            }
             self.layoutIfNeeded()
         }
     }
 
-    private func animateScrollBarHide() {
+    private func animateScrollBarHide(direction: Configuration.Direction) {
         if alpha == 0 { return }
         defer { animateAdditionalInfoViewHide() }
-        if configuration.isAlwaysVisible { return  }
+        if configuration.isAlwaysVisible { return }
         animate(duration: configuration.indicator.animation.hideDuration) { [weak self] in
             guard let self else { return }
             self.alpha = 0
             guard self.configuration.indicator.animation.animationType == .fadeAndSide else { return }
-            self.scrollIndicatorTrailingConstraint?.constant = self.configuration.indicator.normalState.size.width
+            switch direction {
+            case .horizontal:
+                self.scrollIndicatorBottomConstraint?.constant = self.configuration.indicator.normalState.size.height
+            case .vertical:
+                self.scrollIndicatorTrailingConstraint?.constant = self.configuration.indicator.normalState.size.width
+            }
             self.layoutIfNeeded()
         }
     }
@@ -656,6 +893,11 @@ extension DMScrollBar: UIGestureRecognizerDelegate {
     }
 
     public func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-        return scrollIndicator.frame.minY...scrollIndicator.frame.maxY ~= touch.location(in: self).y
+        switch configuration.direction {
+        case .horizontal:
+            return scrollIndicator.frame.minX ... scrollIndicator.frame.maxX ~= touch.location(in: self).x
+        case .vertical:
+            return scrollIndicator.frame.minY ... scrollIndicator.frame.maxY ~= touch.location(in: self).y
+        }
     }
 }

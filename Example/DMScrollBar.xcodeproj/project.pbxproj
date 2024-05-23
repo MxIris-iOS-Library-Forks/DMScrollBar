@@ -46,6 +46,7 @@
 		B3D4E6F5A3ED8A87D85F9660 /* README.md */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = net.daringfireball.markdown; name = README.md; path = ../README.md; sourceTree = "<group>"; };
 		E0C97CB26DB1322F37C1536C /* Pods-DMScrollBar_Tests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-DMScrollBar_Tests.debug.xcconfig"; path = "Target Support Files/Pods-DMScrollBar_Tests/Pods-DMScrollBar_Tests.debug.xcconfig"; sourceTree = "<group>"; };
 		E4C527C3BCA7CEAF93DD4F8C /* Pods-DMScrollBar_Tests.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-DMScrollBar_Tests.release.xcconfig"; path = "Target Support Files/Pods-DMScrollBar_Tests/Pods-DMScrollBar_Tests.release.xcconfig"; sourceTree = "<group>"; };
+		E96BD10C2B8C7E0200689853 /* DMScrollBar_Example.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DMScrollBar_Example.entitlements; sourceTree = "<group>"; };
 		F86727F10A67E6FD5C73A6A2 /* Pods_DMScrollBar_Example.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_DMScrollBar_Example.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -83,6 +84,7 @@
 		607FACC71AFB9204008FA782 = {
 			isa = PBXGroup;
 			children = (
+				E96BD10C2B8C7E0200689853 /* DMScrollBar_Example.entitlements */,
 				607FACF51AFB993E008FA782 /* Podspec Metadata */,
 				607FACD21AFB9204008FA782 /* Example for DMScrollBar */,
 				607FACE81AFB9204008FA782 /* Tests */,
@@ -212,12 +214,10 @@
 				TargetAttributes = {
 					607FACCF1AFB9204008FA782 = {
 						CreatedOnToolsVersion = 6.3.1;
-						DevelopmentTeam = 2S883HFCN8;
 						LastSwiftMigration = 0900;
 					};
 					607FACE41AFB9204008FA782 = {
 						CreatedOnToolsVersion = 6.3.1;
-						DevelopmentTeam = 2S883HFCN8;
 						LastSwiftMigration = 0900;
 						TestTargetID = 607FACCF1AFB9204008FA782;
 					};
@@ -480,13 +480,17 @@
 			baseConfigurationReference = 9A610708244535B7934933DB /* Pods-DMScrollBar_Example.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				DEVELOPMENT_TEAM = 2S883HFCN8;
+				CODE_SIGN_ENTITLEMENTS = DMScrollBar_Example.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				DEVELOPMENT_TEAM = "";
 				INFOPLIST_FILE = DMScrollBar/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				MODULE_NAME = ExampleApp;
 				PRODUCT_BUNDLE_IDENTIFIER = "org.cocoapods.demo.$(PRODUCT_NAME:rfc1034identifier)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = YES;
 				SWIFT_SWIFT3_OBJC_INFERENCE = Default;
 				SWIFT_VERSION = 4.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -498,13 +502,17 @@
 			baseConfigurationReference = 4F2A9EFED781DB0DBB8C538A /* Pods-DMScrollBar_Example.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				DEVELOPMENT_TEAM = 2S883HFCN8;
+				CODE_SIGN_ENTITLEMENTS = DMScrollBar_Example.entitlements;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				DEVELOPMENT_TEAM = "";
 				INFOPLIST_FILE = DMScrollBar/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 14.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				MODULE_NAME = ExampleApp;
 				PRODUCT_BUNDLE_IDENTIFIER = "org.cocoapods.demo.$(PRODUCT_NAME:rfc1034identifier)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = YES;
 				SWIFT_SWIFT3_OBJC_INFERENCE = Default;
 				SWIFT_VERSION = 4.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -515,7 +523,8 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = E0C97CB26DB1322F37C1536C /* Pods-DMScrollBar_Tests.debug.xcconfig */;
 			buildSettings = {
-				DEVELOPMENT_TEAM = 2S883HFCN8;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				DEVELOPMENT_TEAM = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(PLATFORM_DIR)/Developer/Library/Frameworks",
 					"$(inherited)",
@@ -539,7 +548,8 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = E4C527C3BCA7CEAF93DD4F8C /* Pods-DMScrollBar_Tests.release.xcconfig */;
 			buildSettings = {
-				DEVELOPMENT_TEAM = 2S883HFCN8;
+				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "-";
+				DEVELOPMENT_TEAM = "";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(PLATFORM_DIR)/Developer/Library/Frameworks",
 					"$(inherited)",
