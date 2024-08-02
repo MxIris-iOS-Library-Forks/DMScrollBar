@@ -236,44 +236,32 @@ public class DMScrollBar: UIView {
         /// For example, when adding scrollBar to the tableView, the tableView section headers overlaps scrollBar, and therefore scrollBar gestures are not recognized.
         /// layer.sublayers property is used for observation because subviews property is not KVO compliant.
         scrollView?
-            .publisher(for: \.layer.sublayers)
-            .sink { [weak self] _ in self?.bringScrollBarToFront() }
+            .publisher(for: \.layer.sublayers, options: .new)
+            .sink { [weak self] sublayers in
+                guard let self = self else { return }
+                if sublayers?.last != layer && sublayers?.lastlast != layer {
+                    bringScrollBarToFront()
+                }
+            }
+            .store(in: &cancellables)
+        
+        scrollView?
+            .publisher(for: \.contentSize, options: .new)
+            .sink { [weak self] contentSize in
+                guard let self = self, let scrollView else { return }
+                switch configuration.direction {
+                case .horizontal:
+                    isHidden = contentSize.width < scrollView.bounds.width
+                case .vertical:
+                    isHidden = contentSize.height < scrollView.bounds.height
+                }
+            }
             .store(in: &cancellables)
     }
 
     private func bringScrollBarToFront() {
         guard let scrollView else { return }
-
-        let numberOfScrollBars = scrollView.subviews.filter { $0.isKind(of: DMScrollBar.self) }.count
-
-        switch numberOfScrollBars {
-        case 1:
-            if let lastSubview = scrollView.layer.sublayers?.last?.delegate, !lastSubview.isKind(of: DMScrollBar.self) {
-                scrollView.bringSubviewToFront(self)
-            }
-        case 2:
-            let isTopSubview = scrollView.layer.sublayers?.last?.delegate?.isKind(of: DMScrollBar.self) ?? false
-            let isSecondTopSubview = scrollView.layer.sublayers?.lastlast?.delegate?.isKind(of: DMScrollBar.self) ?? false
-            switch (isTopSubview, isSecondTopSubview) {
-            case (false, false):
-                scrollView.bringSubviewToFront(self)
-            case (true, false):
-                if let index = scrollView.subviews.firstIndex(of: self) {
-                    scrollView.exchangeSubview(at: index, withSubviewAt: scrollView.subviews.count - 2)
-                }
-            case (false, true):
-                if let index = scrollView.subviews.firstIndex(of: self) {
-                    scrollView.exchangeSubview(at: index, withSubviewAt: scrollView.subviews.count - 1)
-                }
-            case (true, true):
-                break
-            }
-            if !isTopSubview || !isSecondTopSubview {
-                scrollView.bringSubviewToFront(self)
-            }
-        default:
-            scrollView.bringSubviewToFront(self)
-        }
+        scrollView.bringSubviewToFront(self)
     }
 
     private func handleScrollViewOffsetChange(previousOffset: CGPoint?, newOffset: CGPoint, direction: Configuration.Direction) {
@@ -899,5 +887,12 @@ extension DMScrollBar: UIGestureRecognizerDelegate {
         case .vertical:
             return scrollIndicator.frame.minY ... scrollIndicator.frame.maxY ~= touch.location(in: self).y
         }
+    }
+}
+
+
+extension CGSize: Comparable {
+    public static func < (lhs: CGSize, rhs: CGSize) -> Bool {
+        lhs.width < rhs.width && lhs.height < rhs.height
     }
 }
